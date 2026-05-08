@@ -1,0 +1,10 @@
+{
+  "name": "oracle-runique",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "micro": "^10.0.1",
+    "stripe": "^14.21.0"
+  }
+}
