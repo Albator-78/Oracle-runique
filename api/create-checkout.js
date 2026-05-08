@@ -1,6 +1,4 @@
-// =============================================================
-// api/create-checkout.js — CommonJS (Vercel compatible)
-// =============================================================
+// api/create-checkout.js — CommonJS + new Stripe() corrigé
 
 const Stripe = require("stripe");
 
@@ -10,7 +8,7 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Methode non autorisee" });
 
   const { email, pack } = req.body || {};
   if (!email || !pack) return res.status(400).json({ error: "email et pack requis" });
@@ -29,7 +27,8 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: "STRIPE_SECRET_KEY manquante dans Vercel" });
   }
 
-  const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+  // ← new Stripe() obligatoire en v14
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const appUrl = (process.env.APP_URL || "https://oracle-runique.vercel.app").replace(/\/$/, "");
 
   try {
