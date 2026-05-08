@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Futhark Oracle — Les Runes Parlent</title>
+<!-- Stripe.js — TOUJOURS chargé depuis stripe.com, jamais en local -->
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+  :root {
+    --ink: #0d0a05;
+    --parchment: #f2e8d5;
+    --parchment-dark: #e4d4b3;
+    --gold: #b8860b;
+    --gold-light: #d4a017;
+    --gold-pale: #f5deb3;
+    --ember: #8b2500;
+    --ash: #3a2e22;
+    --smoke: #6b5d4f;
+    --rune-glow: #c8941a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Cormorant Garamond', serif;
+    background: var(--ink);
+    color: var(--parchment);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, #1a0f00 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 20% 80%, #200800 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 80% 70%, #0a0500 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: var(--gold);
+    border-radius: 50%;
+    opacity: 0;
+    animation: float-up linear infinite;
+  }
+
+  @keyframes float-up {
+    0%   { opacity: 0; transform: translateY(0) scale(0); }
+    10%  { opacity: 0.6; }
+    90%  { opacity: 0.2; }
+    100% { opacity: 0; transform: translateY(-100vh) scale(0.5); }
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 3rem 2rem 5rem;
+  }
+
+  /* ---- EN-TÊTE ---- */
+  header {
+    text-align: center;
+    margin-bottom: 3.5rem;
+    animation: fade-in 1.2s ease both;
+  }
+
+  .header-runes {
+    font-size: 2rem;
+    color: var(--gold);
+    letter-spacing: 1.2rem;
+    margin-bottom: 1rem;
+    display: block;
+    text-shadow: 0 0 20px rgba(200,148,26,0.4);
+    animation: pulse-runes 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-runes {
+    0%,100% { text-shadow: 0 0 15px rgba(200,148,26,0.3); }
+    50%     { text-shadow: 0 0 35px rgba(200,148,26,0.7), 0 0 60px rgba(200,148,26,0.3); }
+  }
+
+  h1 {
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    color: var(--gold-light);
+    letter-spacing: 0.15em;
+    line-height: 1.3;
+    margin-bottom: 0.6rem;
+  }
+
+  .subtitle {
+    font-size: 1.1rem;
+    color: var(--smoke);
+    font-style: italic;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+  }
+
+  /* ---- BANDEAU JETONS ---- */
+  .token-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+    padding: 0.8rem 1.5rem;
+    border: 1px solid rgba(184,134,11,0.2);
+    background: rgba(20,12,3,0.6);
+    backdrop-filter: blur(4px);
+  }
+
+  .token-count {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.95rem;
+    color: var(--parchment-dark);
+    letter-spacing: 0.06em;
+  }
+
+  .token-count .flame { font-size: 1.3rem; }
+  .token-count .num {
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 1.15rem;
+    color: var(--gold-light);
+    min-width: 1.8rem;
+    text-align: center;
+  }
+
+  .btn-buy {
+    padding: 0.45rem 1.2rem;
+    background: transparent;
+    border: 1px solid rgba(184,134,11,0.5);
+    color: var(--gold);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-style: italic;
+  }
+
+  .btn-buy:hover {
+    background: rgba(184,134,11,0.12);
+    border-color: var(--gold);
+    color: var(--gold-light);
+  }
+
+  .user-email {
+    font-size: 0.75rem;
+    color: var(--smoke);
+    font-style: italic;
+    letter-spacing: 0.05em;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ---- ORNEMENT ---- */
+  .ornament {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 2rem 0;
+    color: var(--gold);
+    opacity: 0.5;
+  }
+  .ornament::before, .ornament::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+  }
+  .ornament span { font-size: 1.4rem; }
+
+  /* ---- SAISIE ---- */
+  .input-section { animation: fade-in 1.2s ease 0.3s both; }
+
+  .input-label {
+    display: block;
+    text-align: center;
+    font-size: 1rem;
+    color: var(--smoke);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+    font-weight: 300;
+  }
+
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    gap: 0;
+    border: 1px solid rgba(184,134,11,0.35);
+    background: rgba(20,12,3,0.7);
+    backdrop-filter: blur(4px);
+    transition: border-color 0.3s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--gold);
+    box-shadow: 0 0 25px rgba(200,148,26,0.2), inset 0 0 15px rgba(200,148,26,0.05);
+  }
+
+  input[type="text"], input[type="email"] {
+    flex: 1;
+    padding: 1.1rem 1.5rem;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.3rem;
+    color: var(--parchment);
+    letter-spacing: 0.15em;
+    caret-color: var(--gold);
+  }
+
+  input::placeholder { color: rgba(107,93,79,0.5); }
+
+  button.invoke {
+    padding: 1.1rem 2rem;
+    background: linear-gradient(135deg, #7a5c00, #b8860b, #7a5c00);
+    background-size: 200% 100%;
+    border: none;
+    cursor: pointer;
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 0.75rem;
+    color: var(--parchment);
+    letter-spacing: 0.15em;
+    transition: all 0.4s ease;
+    white-space: nowrap;
+  }
+
+  button.invoke:hover { background-position: 100% 0; color: #fff; }
+  button.invoke:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- APERÇU RUNES ---- */
+  .rune-preview {
+    text-align: center;
+    margin-top: 1.5rem;
+    min-height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .rune-glyph {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: rune-appear 0.4s ease forwards;
+  }
+
+  @keyframes rune-appear { to { opacity: 1; transform: translateY(0); } }
+
+  .rune-glyph .r {
+    font-size: 2.2rem;
+    line-height: 1;
+    color: var(--gold-light);
+    text-shadow: 0 0 12px rgba(200,148,26,0.5);
+  }
+
+  .rune-glyph:hover .r { text-shadow: 0 0 25px rgba(200,148,26,1), 0 0 50px rgba(200,148,26,0.4); }
+  .rune-glyph .l { font-size: 0.65rem; color: var(--smoke); letter-spacing: 0.1em; font-style: italic; }
+
+  /* ---- LOADER ---- */
+  .loader { display: none; text-align: center; padding: 3rem; animation: fade-in 0.4s ease; }
+  .loader.active { display: block; }
+
+  .rune-spinner {
+    font-size: 3rem;
+    display: block;
+    animation: spin-rune 2s linear infinite;
+    color: var(--gold);
+    text-shadow: 0 0 20px var(--gold);
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin-rune {
+    0%   { transform: rotateY(0deg);   text-shadow: 0 0 20px var(--gold); }
+    50%  { transform: rotateY(180deg); text-shadow: 0 0 40px var(--rune-glow); }
+    100% { transform: rotateY(360deg); text-shadow: 0 0 20px var(--gold); }
+  }
+
+  .loader p { color: var(--smoke); font-style: italic; font-size: 1rem; letter-spacing: 0.1em; }
+
+  /* ---- RÉSULTAT ---- */
+  .result-section { display: none; animation: reveal 0.8s ease both; }
+  .result-section.active { display: block; }
+
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .rune-banner {
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(20,12,3,0.9), rgba(40,25,5,0.9));
+    border: 1px solid rgba(184,134,11,0.4);
+    border-top: 2px solid var(--gold);
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .rune-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(200,148,26,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .name-latin { font-size: 0.85rem; color: var(--smoke); letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 0.8rem; }
+  .name-runic {
+    font-size: clamp(2.5rem, 8vw, 4.5rem);
+    color: var(--gold-light);
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 30px rgba(200,148,26,0.6), 0 0 60px rgba(200,148,26,0.2);
+    line-height: 1;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .runes-grid {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+  }
+
+  .rune-card {
+    border: 1px solid rgba(184,134,11,0.25);
+    background: rgba(15,9,2,0.8);
+    padding: 1rem 0.8rem;
+    text-align: center;
+    width: 90px;
+    transition: all 0.3s ease;
+    cursor: default;
+    animation: card-in 0.5s ease both;
+  }
+
+  @keyframes card-in {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .rune-card:hover { border-color: rgba(184,134,11,0.7); box-shadow: 0 0 20px rgba(200,148,26,0.2); transform: translateY(-3px); }
+  .rune-card .symbol { font-size: 2.2rem; color: var(--gold-light); text-shadow: 0 0 10px rgba(200,148,26,0.4); display: block; margin-bottom: 0.4rem; }
+  .rune-card .name-rune { font-size: 0.75rem; color: var(--gold); letter-spacing: 0.1em; display: block; margin-bottom: 0.2rem; font-variant: small-caps; }
+  .rune-card .latin-char { font-size: 0.65rem; color: var(--smoke); font-style: italic; }
+
+  .interpretation {
+    border: 1px solid rgba(184,134,11,0.2);
+    background: rgba(12,7,1,0.7);
+    padding: 2.5rem;
+    position: relative;
+  }
+
+  .interpretation::before {
+    content: '✦';
+    position: absolute;
+    top: -0.8rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--gold);
+    padding: 0 1rem;
+    font-size: 1rem;
+  }
+
+  .interp-title { font-family: 'Cinzel Decorative', cursive; font-size: 0.85rem; color: var(--gold); letter-spacing: 0.2em; text-align: center; margin-bottom: 2rem; text-transform: uppercase; }
+  .interp-content { font-size: 1.1rem; line-height: 1.9; color: var(--parchment-dark); font-weight: 300; }
+  .interp-content h3 { font-family: 'Cinzel Decorative', cursive; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.15em; margin: 2rem 0 0.8rem; text-transform: uppercase; }
+  .interp-content h3:first-child { margin-top: 0; }
+  .interp-content p { margin-bottom: 1rem; }
+  .interp-content em  { color: var(--gold-pale); font-style: italic; }
+  .interp-content strong { color: var(--gold-light); font-weight: 600; }
+
+  /* ---- ERREURS / MESSAGES ---- */
+  .error-msg { text-align: center; padding: 2rem; color: var(--ember); font-style: italic; display: none; animation: fade-in 0.4s ease; }
+  .error-msg.active { display: block; }
+
+  .success-banner {
+    display: none;
+    text-align: center;
+    padding: 1.2rem 2rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(100,200,100,0.3);
+    background: rgba(0,60,0,0.3);
+    color: #88dd88;
+    font-style: italic;
+    letter-spacing: 0.08em;
+    animation: fade-in 0.5s ease;
+  }
+
+  .success-banner.active { display: block; }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---- PIED ---- */
+  footer { text-align: center; margin-top: 4rem; color: rgba(107,93,79,0.4); font-size: 0.8rem; letter-spacing: 0.15em; font-style: italic; }
+
+  /* ================================================================
+     MODALS
+  ================================================================ */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: #120c04;
+    border: 1px solid rgba(184,134,11,0.4);
+    border-top: 2px solid var(--gold);
+    padding: 2.8rem;
+    max-width: 480px;
+    width: 90%;
+    animation: modal-in 0.35s ease;
+    position: relative;
+  }
+
+  @keyframes modal-in {
+    from { opacity: 0; transform: scale(0.94) translateY(-10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1.2rem;
+    background: none;
+    border: none;
+    color: var(--smoke);
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .modal-close:hover { color: var(--gold); }
+
+  .modal h2 {
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 1rem;
+    color: var(--gold-light);
+    letter-spacing: 0.15em;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .modal-sub {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--smoke);
+    font-style: italic;
+    margin-bottom: 2rem;
+    letter-spacing: 0.06em;
+  }
+
+  /* Modal identité */
+  .identity-input-wrap {
+    border: 1px solid rgba(184,134,11,0.35);
+    background: rgba(20,12,3,0.7);
+    margin-bottom: 1.2rem;
+  }
+
+  .identity-input-wrap input {
+    width: 100%;
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+  }
+
+  .btn-confirm {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #7a5c00, #b8860b, #7a5c00);
+    background-size: 200%;
+    border: none;
+    color: var(--parchment);
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: background-position 0.4s;
+  }
+
+  .btn-confirm:hover { background-position: 100%; }
+  .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Forfaits */
+  .packs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pack-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.4rem;
+    border: 1px solid rgba(184,134,11,0.25);
+    background: rgba(20,12,3,0.6);
+    cursor: pointer;
+    transition: all 0.3s;
+    gap: 1rem;
+  }
+
+  .pack-card:hover, .pack-card.selected {
+    border-color: var(--gold);
+    background: rgba(184,134,11,0.08);
+  }
+
+  .pack-card.selected { box-shadow: inset 0 0 20px rgba(184,134,11,0.1); }
+
+  .pack-icon { font-size: 1.6rem; flex-shrink: 0; }
+
+  .pack-info { flex: 1; }
+  .pack-name { font-family: 'Cinzel Decorative', cursive; font-size: 0.8rem; color: var(--gold-light); letter-spacing: 0.1em; margin-bottom: 0.2rem; }
+  .pack-desc { font-size: 0.82rem; color: var(--smoke); font-style: italic; }
+
+  .pack-price { font-size: 1.3rem; color: var(--gold-light); font-family: 'Cinzel Decorative', cursive; flex-shrink: 0; }
+
+  .pack-badge {
+    font-size: 0.65rem;
+    background: var(--ember);
+    color: #ffd;
+    padding: 0.15rem 0.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-left: 0.5rem;
+  }
+
+  .stripe-mention {
+    text-align: center;
+    font-size: 0.72rem;
+    color: rgba(107,93,79,0.55);
+    font-style: italic;
+    letter-spacing: 0.06em;
+    margin-top: 0.8rem;
+  }
+
+  .stripe-mention::before { content: '🔒 '; }
+</style>
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+
+<!-- ============================================================
+     MODAL — IDENTIFICATION
+============================================================ -->
+<div class="modal-overlay active" id="modalIdentity">
+  <div class="modal">
+    <h2>Entrez dans l'Oracle</h2>
+    <p class="modal-sub">Votre adresse courriel sera votre clé runique — elle conserve vos jetons entre les sessions.</p>
+    <div class="identity-input-wrap">
+      <input type="email" id="emailInput" placeholder="votre@courriel.fr" autocomplete="email" />
+    </div>
+    <button class="btn-confirm" id="btnConfirmEmail" onclick="confirmIdentity()">Entrer dans le Sanctuaire</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL — ACHAT DE JETONS
+============================================================ -->
+<div class="modal-overlay" id="modalBuy">
+  <div class="modal">
+    <button class="modal-close" onclick="closeBuyModal()">✕</button>
+    <h2>Acquérir des Jetons</h2>
+    <p class="modal-sub">Chaque consultation consume un jeton — choisissez votre offrande à Odin.</p>
+
+    <div class="packs-grid">
+
+      <div class="pack-card" id="pack-eveil" onclick="selectPack('eveil')">
+        <span class="pack-icon">🌒</span>
+        <div class="pack-info">
+          <div class="pack-name">Éveil</div>
+          <div class="pack-desc">3 consultations runiques</div>
+        </div>
+        <div class="pack-price">1,99€</div>
+      </div>
+
+      <div class="pack-card selected" id="pack-vision" onclick="selectPack('vision')">
+        <span class="pack-icon">🌕</span>
+        <div class="pack-info">
+          <div class="pack-name">Vision</div>
+          <div class="pack-desc">10 consultations runiques</div>
+        </div>
+        <div class="pack-price">4,99€</div>
+      </div>
+
+      <div class="pack-card" id="pack-maitrise" onclick="selectPack('maitrise')">
+        <span class="pack-icon">⚡</span>
+        <div class="pack-info">
+          <div class="pack-name">Maîtrise <span class="pack-badge">Meilleure offre</span></div>
+          <div class="pack-desc">30 consultations runiques</div>
+        </div>
+        <div class="pack-price">12,99€</div>
+      </div>
+
+    </div>
+
+    <button class="btn-confirm" id="btnCheckout" onclick="startCheckout()">Procéder au Paiement →</button>
+    <p class="stripe-mention">Paiement sécurisé par Stripe — Visa, Mastercard, CB</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP PRINCIPALE
+============================================================ -->
+<div class="container">
+
+  <header>
+    <span class="header-runes">ᚠᚢᚦᚨᚱᚲ</span>
+    <h1>L'Oracle Runique</h1>
+    <p class="subtitle">Vieux Futhark · Divination & Signification</p>
+  </header>
+
+  <!-- Bandeau jetons -->
+  <div class="token-bar" id="tokenBar">
+    <div class="token-count">
+      <span class="flame">ᚠ</span>
+      <span class="num" id="tokenNum">…</span>
+      <span>jeton(s)</span>
+    </div>
+    <span class="user-email" id="userEmailDisplay"></span>
+    <button class="btn-buy" onclick="openBuyModal()">+ Recharger</button>
+  </div>
+
+  <!-- Bannière succès paiement -->
+  <div class="success-banner" id="successBanner"></div>
+
+  <div class="ornament"><span>✦</span></div>
+
+  <div class="input-section">
+    <label class="input-label" for="nameInput">Inscrivez votre nom ou un mot</label>
+    <div class="input-wrapper">
+      <input type="text" id="nameInput" placeholder="Arnauld… Sigrid… Lumière…" maxlength="30" autocomplete="off" />
+      <button class="invoke" id="invokeBtn" onclick="invokeRunes()">Invoquer</button>
+    </div>
+    <div class="rune-preview" id="runePreview"></div>
+  </div>
+
+  <div class="loader" id="loader">
+    <span class="rune-spinner">ᚹ</span>
+    <p>Les runes murmurent leur réponse…</p>
+  </div>
+
+  <div class="error-msg" id="errorMsg">
+    ᚷ Les runes refusent de parler. Vérifiez votre connexion et réessayez.
+  </div>
+
+  <div class="result-section" id="result"></div>
+
+  <footer>
+    ᚠ · ᚢ · ᚦ · ᚨ · ᚱ · ᚲ — Vieux Futhark Germanique — 24 Runes
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// CONFIG — À adapter selon votre déploiement
+// ============================================================
+const API_BASE = "";   // Laisser vide : même domaine Vercel
+                       // Ou "https://votre-projet.vercel.app" pour test local
+
+// ============================================================
+// ÉTAT GLOBAL
+// ============================================================
+let userEmail    = localStorage.getItem("oracle_email") || null;
+let tokenBalance = 0;
+let selectedPack = "vision";
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener("DOMContentLoaded", () => {
+  initParticles();
+  handleUrlParams();
+
+  if (userEmail) {
+    openApp();
+  }
+  // Sinon : le modal d'identité est déjà visible
+});
+
+// ============================================================
+// GESTION URL PARAMS (retour Stripe)
+// ============================================================
+function handleUrlParams() {
+  const params = new URLSearchParams(location.search);
+
+  if (params.get("success") === "1") {
+    const banner = document.getElementById("successBanner");
+    const packNames = { eveil: "Éveil (3 jetons)", vision: "Vision (10 jetons)", maitrise: "Maîtrise (30 jetons)" };
+    const pack = packNames[params.get("pack")] || "vos jetons";
+    banner.textContent = `✦ Paiement accepté — ${pack} ont été crédités sur votre compte. ✦`;
+    banner.classList.add("active");
+    setTimeout(() => banner.classList.remove("active"), 8000);
+    // Nettoyer l'URL
+    history.replaceState({}, "", "/");
+  }
+
+  if (params.get("cancelled") === "1") {
+    history.replaceState({}, "", "/");
+  }
+}
+
+// ============================================================
+// IDENTITÉ
+// ============================================================
+function confirmIdentity() {
+  const input = document.getElementById("emailInput");
+  const email = input.value.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    input.style.borderBottom = "1px solid var(--ember)";
+    input.focus();
+    return;
+  }
+  localStorage.setItem("oracle_email", email);
+  userEmail = email;
+  document.getElementById("modalIdentity").classList.remove("active");
+  openApp();
+}
+
+document.getElementById("emailInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") confirmIdentity();
+});
+
+function openApp() {
+  document.getElementById("userEmailDisplay").textContent = userEmail;
+  refreshBalance();
+}
+
+// ============================================================
+// SOLDE DE JETONS
+// ============================================================
+async function refreshBalance() {
+  try {
+    const r = await fetch(`${API_BASE}/api/tokens?email=${encodeURIComponent(userEmail)}`);
+    const d = await r.json();
+    tokenBalance = d.balance ?? 0;
+    updateTokenDisplay();
+  } catch {
+    document.getElementById("tokenNum").textContent = "?";
+  }
+}
+
+function updateTokenDisplay() {
+  const el = document.getElementById("tokenNum");
+  el.textContent = tokenBalance;
+  el.style.color = tokenBalance > 0 ? "var(--gold-light)" : "var(--ember)";
+}
+
+// ============================================================
+// MODAL ACHAT
+// ============================================================
+function openBuyModal() {
+  document.getElementById("modalBuy").classList.add("active");
+}
+
+function closeBuyModal() {
+  document.getElementById("modalBuy").classList.remove("active");
+}
+
+function selectPack(pack) {
+  selectedPack = pack;
+  document.querySelectorAll(".pack-card").forEach(c => c.classList.remove("selected"));
+  document.getElementById("pack-" + pack).classList.add("selected");
+}
+
+async function startCheckout() {
+  const btn = document.getElementById("btnCheckout");
+  btn.disabled = true;
+  btn.textContent = "Connexion à Stripe…";
+
+  try {
+    const r = await fetch(`${API_BASE}/api/create-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: userEmail, pack: selectedPack })
+    });
+    const d = await r.json();
+    if (d.url) {
+      window.location.href = d.url;   // Redirection vers Stripe Checkout
+    } else {
+      throw new Error(d.error || "Impossible de créer la session");
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "Procéder au Paiement →";
+    alert("Erreur : " + err.message);
+  }
+}
+
+// ============================================================
+// TABLE FUTHARK
+// ============================================================
+const FUTHARK = {
+  a: { rune:'ᚨ', name:'Ansuz',    meaning:'Communication divine, souffle d\'Odin' },
+  b: { rune:'ᛒ', name:'Berkanan', meaning:'Fertilité, renaissance, growth' },
+  c: { rune:'ᚲ', name:'Kenaz',    meaning:'Torche, lumière intérieure, connaissance' },
+  d: { rune:'ᛞ', name:'Dagaz',    meaning:'Aurore, transformation, percée' },
+  e: { rune:'ᛖ', name:'Ehwaz',    meaning:'Cheval, voyage, partenariat' },
+  f: { rune:'ᚠ', name:'Fehu',     meaning:'Richesse, abondance, prospérité' },
+  g: { rune:'ᚷ', name:'Gebo',     meaning:'Don, échange, union' },
+  h: { rune:'ᚺ', name:'Hagalaz',  meaning:'Grêle, disruption, force naturelle' },
+  i: { rune:'ᛁ', name:'Isaz',     meaning:'Glace, immobilité, clarté cristalline' },
+  j: { rune:'ᛃ', name:'Jera',     meaning:'Récolte, cycle annuel, justice naturelle' },
+  k: { rune:'ᚲ', name:'Kenaz',    meaning:'Torche, lumière intérieure, connaissance' },
+  l: { rune:'ᛚ', name:'Laguz',    meaning:'Eau, flux, intuition' },
+  m: { rune:'ᛗ', name:'Mannaz',   meaning:'Humanité, conscience, mémoire' },
+  n: { rune:'ᚾ', name:'Naudiz',   meaning:'Besoin, contrainte, nécessité' },
+  o: { rune:'ᛟ', name:'Othalan',  meaning:'Héritage, patrie, ancestres' },
+  p: { rune:'ᛈ', name:'Perthro',  meaning:'Destin, mystère, le sort qui tombe' },
+  q: { rune:'ᚲ', name:'Kenaz',    meaning:'Torche, lumière (assimilé à K)' },
+  r: { rune:'ᚱ', name:'Raidho',   meaning:'Voyage, rythme, quête initiatique' },
+  s: { rune:'ᛊ', name:'Sowilo',   meaning:'Soleil, victoire, force vitale' },
+  t: { rune:'ᛏ', name:'Tiwaz',    meaning:'Tyr, justice, sacrifice guerrier' },
+  u: { rune:'ᚢ', name:'Uruz',     meaning:'Auroch, force brute, santé' },
+  v: { rune:'ᚢ', name:'Uruz',     meaning:'Force, vitalité (assimilé à U)' },
+  w: { rune:'ᚹ', name:'Wunjo',    meaning:'Joie, harmonie, réalisation' },
+  x: { rune:'ᚷ', name:'Gebo',     meaning:'Don double (assimilé à GS)' },
+  y: { rune:'ᛃ', name:'Jera',     meaning:'Cycle, temps (assimilé à J)' },
+  z: { rune:'ᛉ', name:'Algiz',    meaning:'Protection, connexion divine, éveil' },
+  th:{ rune:'ᚦ', name:'Thurisaz', meaning:'Thor, géant, force de la nature' },
+  ng:{ rune:'ᛜ', name:'Ingwaz',   meaning:'Inguz, potentiel latent, graine' },
+  ae:{ rune:'ᚨ', name:'Ansuz',    meaning:'Son éternel, parole sacrée' },
+};
+
+// ============================================================
+// PARTICULES
+// ============================================================
+function initParticles() {
+  const container = document.getElementById("particles");
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.left = Math.random() * 100 + "%";
+    p.style.bottom = "0";
+    p.style.animationDelay    = (Math.random() * 12) + "s";
+    p.style.animationDuration = (8 + Math.random() * 15) + "s";
+    p.style.width = p.style.height = (1 + Math.random() * 3) + "px";
+    container.appendChild(p);
+  }
+}
+
+// ============================================================
+// TRADUCTION NOM → RUNES
+// ============================================================
+function translateName(name) {
+  const chars = [];
+  let i = 0;
+  const lower = name.toLowerCase().replace(/[^a-z]/g, "");
+  while (i < lower.length) {
+    const bigram = lower.slice(i, i + 2);
+    if (bigram === "th" && FUTHARK["th"]) {
+      chars.push({ letter: "th", ...FUTHARK["th"] }); i += 2;
+    } else if (bigram === "ng" && FUTHARK["ng"]) {
+      chars.push({ letter: "ng", ...FUTHARK["ng"] }); i += 2;
+    } else {
+      const c = lower[i];
+      if (FUTHARK[c]) chars.push({ letter: c.toUpperCase(), ...FUTHARK[c] });
+      i++;
+    }
+  }
+  return chars;
+}
+
+// ============================================================
+// APERÇU TEMPS RÉEL
+// ============================================================
+document.getElementById("nameInput").addEventListener("input", function() {
+  const preview = document.getElementById("runePreview");
+  const val = this.value.trim();
+  if (!val) { preview.innerHTML = ""; return; }
+  const runes = translateName(val);
+  preview.innerHTML = runes.map((r, idx) =>
+    `<span class="rune-glyph" style="animation-delay:${idx * 0.07}s">
+      <span class="r">${r.rune}</span>
+      <span class="l">${r.letter.toUpperCase()}</span>
+    </span>`
+  ).join("");
+});
+
+document.getElementById("nameInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") invokeRunes();
+});
+
+// ============================================================
+// INVOCATION PRINCIPALE
+// ============================================================
+async function invokeRunes() {
+  if (!userEmail) {
+    document.getElementById("modalIdentity").classList.add("active");
+    return;
+  }
+
+  const name = document.getElementById("nameInput").value.trim();
+  if (!name) return;
+
+  // Vérification locale du solde
+  if (tokenBalance <= 0) {
+    openBuyModal();
+    return;
+  }
+
+  const btn    = document.getElementById("invokeBtn");
+  const loader = document.getElementById("loader");
+  const result = document.getElementById("result");
+  const error  = document.getElementById("errorMsg");
+
+  btn.disabled = true;
+  loader.classList.add("active");
+  result.classList.remove("active");
+  result.innerHTML = "";
+  error.classList.remove("active");
+
+  const runes    = translateName(name);
+  const runicStr = runes.map(r => r.rune).join("");
+  const runesList= runes.map(r => `${r.letter.toUpperCase()} → ${r.rune} (${r.name})`).join(", ");
+
+  const prompt = `Tu es un runologue et voyant nordique. Le nom "${name}" se transcrit en vieux futhark ainsi : ${runesList}. La transcription runique complète est : ${runicStr}.
+
+Rédige une interprétation divinatoire approfondie en français, structurée en 3 parties avec des titres en markdown (### Titre) :
+
+### Essence Runique
+La signification symbolique de chaque rune présente dans ce nom et comment elles s'articulent ensemble (2-3 paragraphes).
+
+### Message des Nornes
+Ce que ce nom révèle sur le destin, le caractère et la voie spirituelle de celui qui le porte — selon la tradition nordique des Nornes (fileuses du destin). Mentionne Yggdrasil, les Ases ou Vanes si pertinent (2 paragraphes).
+
+### Oracle Personnel
+Une prophétie poétique et personnelle adressée directement à ${name} (3-4 phrases, ton oraculaire et solennel).
+
+Utilise un langage riche, poétique et mystique. Intègre naturellement des termes nordiques (Wyrd, Nornes, Yggdrasil, Ragnarök, Mjolnir, Seiðr…). Sois précis et évocateur, pas générique.`;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/oracle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: userEmail,
+        payload: {
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2048,
+          messages: [{ role: "user", content: prompt }]
+        }
+      })
+    });
+
+    if (response.status === 402) {
+      // Plus de jetons
+      loader.classList.remove("active");
+      btn.disabled = false;
+      tokenBalance = 0;
+      updateTokenDisplay();
+      openBuyModal();
+      return;
+    }
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData?.error?.message || errData?.error || `Erreur ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.content.map(b => b.text || "").join("");
+
+    // Mettre à jour le solde retourné par le serveur
+    if (data.tokenBalance !== undefined) {
+      tokenBalance = data.tokenBalance;
+      updateTokenDisplay();
+    }
+
+    loader.classList.remove("active");
+    renderResult(name, runes, runicStr, text);
+
+  } catch (e) {
+    loader.classList.remove("active");
+    error.innerHTML = `ᚷ Les runes refusent de parler.<br><small style="font-size:0.85em;opacity:0.7">${e.message}</small>`;
+    error.classList.add("active");
+  }
+
+  btn.disabled = false;
+}
+
+// ============================================================
+// RENDU DU RÉSULTAT
+// ============================================================
+function renderResult(name, runes, runicStr, interpretation) {
+  const result = document.getElementById("result");
+
+  const seen = new Set();
+  const uniqueRunes = runes.filter(r => {
+    if (seen.has(r.rune)) return false;
+    seen.add(r.rune); return true;
+  });
+
+  const cardsHtml = uniqueRunes.map((r, i) =>
+    `<div class="rune-card" style="animation-delay:${i * 0.08 + 0.3}s" title="${r.meaning}">
+      <span class="symbol">${r.rune}</span>
+      <span class="name-rune">${r.name}</span>
+      <span class="latin-char">${r.letter.toUpperCase()}</span>
+    </div>`
+  ).join("");
+
+  const interpHtml = interpretation
+    .replace(/### (.+)/g, "<h3>$1</h3>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/\n\n/g, "</p><p>")
+    .replace(/\n/g, " ");
+
+  result.innerHTML = `
+    <div class="ornament"><span>✦</span></div>
+    <div class="rune-banner">
+      <div class="name-latin">${name.toUpperCase()}</div>
+      <span class="name-runic">${runicStr}</span>
+    </div>
+    <div class="runes-grid">${cardsHtml}</div>
+    <div class="interpretation">
+      <div class="interp-title">✦ Révélation Runique ✦</div>
+      <div class="interp-content"><p>${interpHtml}</p></div>
+    </div>
+  `;
+
+  result.classList.add("active");
+  result.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ============================================================
+initParticles();
+// ============================================================
+</script>
+</body>
+</html>
