@@ -429,6 +429,10 @@
 
   /* ---- PIED ---- */
   footer { text-align: center; margin-top: 4rem; color: rgba(107,93,79,0.4); font-size: 0.8rem; letter-spacing: 0.15em; font-style: italic; }
+  .footer-links { margin-top: 1rem; display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; font-style: normal; }
+  .footer-links a { color: rgba(184,134,11,0.6); text-decoration: none; letter-spacing: 0.08em; }
+  .footer-links a:hover { color: var(--gold-light); text-decoration: underline; }
+  .footer-links span { color: rgba(107,93,79,0.3); }
 
   /* ================================================================
      MODALS
@@ -578,6 +582,19 @@
   }
 
   .stripe-mention::before { content: '🔒 '; }
+
+  .consent-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--smoke);
+    line-height: 1.5;
+    margin-bottom: 1.2rem;
+    cursor: pointer;
+  }
+  .consent-check input { margin-top: 0.2rem; accent-color: var(--gold); cursor: pointer; }
+  .consent-check a { color: var(--gold); }
 </style>
 </head>
 <body>
@@ -638,7 +655,12 @@
 
     </div>
 
-    <button class="btn-confirm" id="btnCheckout" onclick="startCheckout()">Procéder au Paiement →</button>
+    <label class="consent-check">
+      <input type="checkbox" id="consentWithdraw" onchange="document.getElementById('btnCheckout').disabled = !this.checked">
+      J'accepte l'exécution immédiate du service et renonce à mon droit de rétractation de 14 jours. J'ai lu et j'accepte les <a href="/cgv.html" target="_blank">CGV</a>.
+    </label>
+
+    <button class="btn-confirm" id="btnCheckout" onclick="startCheckout()" disabled>Procéder au Paiement →</button>
     <p class="stripe-mention">Paiement sécurisé par Stripe — Visa, Mastercard, CB</p>
   </div>
 </div>
@@ -692,6 +714,15 @@
 
   <footer>
     ᚠ · ᚢ · ᚦ · ᚨ · ᚱ · ᚲ — Vieux Futhark Germanique — 24 Runes \club micro jam:rc-gm-by\
+    <div class="footer-links">
+      <a href="/mentions-legales.html">Mentions légales</a>
+      <span>·</span>
+      <a href="/cgv.html">CGV</a>
+      <span>·</span>
+      <a href="/remboursement.html">Remboursement</a>
+      <span>·</span>
+      <a href="/contact.html">Contact</a>
+    </div>
   </footer>
 </div>
 
@@ -810,6 +841,8 @@ function updateTokenDisplay() {
 // MODAL ACHAT
 // ============================================================
 function openBuyModal() {
+  document.getElementById("consentWithdraw").checked = false;
+  document.getElementById("btnCheckout").disabled = true;
   document.getElementById("modalBuy").classList.add("active");
 }
 
