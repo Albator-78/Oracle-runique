@@ -729,6 +729,15 @@ function handleUrlParams() {
   const params = new URLSearchParams(location.search);
 
   if (params.get("success") === "1") {
+    // FIX : si le localStorage a été perdu entre le départ vers Stripe
+    // et le retour (ITP Safari, domaine différent, cache vidé…), on se
+    // raccroche à l'email que Stripe nous renvoie dans le success_url.
+    const emailFromUrl = params.get("email");
+    if (emailFromUrl && !userEmail) {
+      userEmail = emailFromUrl.trim().toLowerCase();
+      localStorage.setItem("oracle_email", userEmail);
+    }
+
     const banner = document.getElementById("successBanner");
     const packNames = { eveil: "Éveil (3 jetons)", vision: "Vision (10 jetons)", maitrise: "Maîtrise (30 jetons)" };
     const pack = packNames[params.get("pack")] || "vos jetons";
@@ -766,6 +775,11 @@ document.getElementById("emailInput").addEventListener("keydown", e => {
 });
 
 function openApp() {
+  // FIX : c'était le bug principal — cette fonction ne fermait jamais
+  // la modal d'identité. Résultat : même un utilisateur déjà reconnu
+  // (email en localStorage, ou restauré depuis l'URL Stripe) revoyait
+  // systématiquement l'écran "Entrez dans l'Oracle" par-dessus l'app.
+  document.getElementById("modalIdentity").classList.remove("active");
   document.getElementById("userEmailDisplay").textContent = userEmail;
   refreshBalance();
 }
@@ -776,10 +790,12 @@ function openApp() {
 async function refreshBalance() {
   try {
     const r = await fetch(`${API_BASE}/api/tokens?email=${encodeURIComponent(userEmail)}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
     tokenBalance = d.balance ?? 0;
     updateTokenDisplay();
-  } catch {
+  } catch (err) {
+    console.error("Erreur lecture solde :", err.message);
     document.getElementById("tokenNum").textContent = "?";
   }
 }
